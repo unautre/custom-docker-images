@@ -1,0 +1,21 @@
+version: '3.7'
+
+services:
+  namenode:
+    image: hadoop-base-image
+    command: sh -c "bin/hdfs namenode -format && bin/hdfs namenode"
+    init: true
+    environment:
+      - "HDFS_SITE_fs_defaultFS=hdfs://namenode:9000/"
+    ports:
+      - 9000:9000
+      - 50070:50070
+  datanode:
+    image: hadoop-base-image
+    command: sh -c "bin/hdfs datanode"
+    init: true
+    environment:
+      - "HDFS_SITE_fs_defaultFS=hdfs://namenode:9000/"
+      - "SERVICE_PRECONDITION=namenode:9000"
+    ports:
+      - 9864:9864
