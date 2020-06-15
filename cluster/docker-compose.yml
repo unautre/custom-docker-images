@@ -1,21 +1,54 @@
 version: '3.7'
 
+x-accumulo-common: &accumulo-base
+  image: unautre/accumulo-base-image:latest
+  init: true
+  volumes:
+    - "./acc-logs/:/usr/local/accumulo/logs/"
+  environment:
+    - "SERVICE_PRECONDITION=namenode:9000 datanode:9864 zookeeper:2181 monitor:9995"
+    - "ACCUMULO_SITE_instance_zookeeper_host=zookeeper:2181"
+    - "ACCUMULO_SITE_instance_volumes=hdfs://namenode:9000/"
+    - "PROXY_instance_name=accumulo"
+
 services:
   namenode:
-    image: hadoop-base-image
+    image: unautre/hadoop-base-image:latest
     command: sh -c "bin/hdfs namenode -format && bin/hdfs namenode"
     init: true
     environment:
       - "HDFS_SITE_fs_defaultFS=hdfs://namenode:9000/"
-    ports:
-      - 9000:9000
-      - 50070:50070
+      - "HDFS_SITE_dfs_replication=1"
+    #ports:
+    #  - 9870:9870
   datanode:
-    image: hadoop-base-image
+    image: unautre/hadoop-base-image:latest
     command: sh -c "bin/hdfs datanode"
     init: true
     environment:
       - "HDFS_SITE_fs_defaultFS=hdfs://namenode:9000/"
+      - "HDFS_SITE_dfs_replication=1"
       - "SERVICE_PRECONDITION=namenode:9000"
-    ports:
-      - 9864:9864
+    #ports:
+    #  - 9864:9864
+  zookeeper:
+    image: bitnami/zookeeper:3.6.1
+    environment:
+      - "ALLOW_ANONYMOUS_LOGIN=true"
+  monitor:
+    <<: *accumulo-base
+    command: sh -c "bin/accumulo init --instance-name accumulo --clear-instance-name --password secret && bin/accumulo monitor"
+    environment:
+      - "SERVICE_PRECONDITION=namenode:9000 datanode:9864 zookeeper:2181"
+      - "ACCUMULO_SITE_instance_zookeeper_host=zookeeper:2181"
+      - "ACCUMULO_SITE_instance_volumes=hdfs://namenode:9000/"
+      - "PROXY_instance_name=accumulo"
+  master:
+    <<: *accumulo-base
+    command: bin/accumulo master
+  tserver:
+    <<: *accumulo-base
+    command: bin/accumulo tserver
+  proxy:
+    <<: *accumulo-base
+    command: sh -c "cat proxy/proxy.properties && bin/accumulo proxy -p proxy/proxy.properties"
